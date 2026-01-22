@@ -2,7 +2,7 @@ import os
 import time
 import random
 import psycopg2
-from datetime import datetime
+from datetime import datetime, timedelta
 
 #Достаём данные из .env
 DB_HOST = os.getenv("DB_HOST")
@@ -49,22 +49,29 @@ cities = {
     }
 }
 
-def generate_weather_data():
-    #Генерирует данные для случайного города
+# Начальная дата
+start_date = datetime(2026, 1, 1, 12, 0)  # фиксированное время 12:00
+current_date = start_date
+
+def generate_weather_data_for_day():
+    #Генерирует случайные данные
+    global current_date
+
     city = random.choice(list(cities.keys()))
     ranges = cities[city]
-    
-    temperature = round(random.uniform(*ranges["temperature"]), 1)
+
+    temperature = random.randint(*ranges["temperature"])
     humidity = round(random.uniform(*ranges["humidity"]), 1)
     pressure = round(random.uniform(*ranges["pressure"]), 1)
     wind_speed = round(random.uniform(*ranges["wind_speed"]), 1)
-    
-    return city, temperature, humidity, pressure, wind_speed
+
+    timestamp = current_date
+    current_date += timedelta(days=1)  # каждый день +1
+    return timestamp, city, temperature, humidity, pressure, wind_speed
 
 try:
     while True:
-        timestamp = datetime.now()
-        city, temperature, humidity, pressure, wind_speed = generate_weather_data()
+        timestamp, city, temperature, humidity, pressure, wind_speed = generate_weather_data_for_day()
         cursor.execute(
             """
             INSERT INTO weather (timestamp, city, temperature, humidity, pressure, wind_speed)
@@ -73,11 +80,10 @@ try:
             (timestamp, city, temperature, humidity, pressure, wind_speed)
         )
         conn.commit()
-        time.sleep(10)
+        time.sleep(1)
 
-except KeyboardInterrupt:
+except Exception as e:
     pass
-
 finally:
     cursor.close()
     conn.close()
