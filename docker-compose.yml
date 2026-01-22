@@ -1,0 +1,141 @@
+version: '3.8'
+
+services:
+#БД для погодных условий
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    env_file:
+      - .env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db:/docker-entrypoint-initdb.d
+    networks:
+      - mynet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  #Генератор погодных данных
+  generator:
+    build: ./weather_generator
+    container_name: generator
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    env_file:
+      - .env
+    networks:
+      - mynet
+    restart: unless-stopped
+
+  #БД для redash
+  postgres_redash:
+    image: postgres:15-alpine
+    container_name: postgres_redash
+    environment:
+      POSTGRES_USER: ${DB_REDASH_USER}
+      POSTGRES_PASSWORD: ${DB_REDASH_PASSWORD}
+      POSTGRES_DB: ${DB_REDASH_NAME}
+    env_file:
+      - .env
+    volumes:
+      - redash_data:/var/lib/postgresql/data
+    networks:
+      - mynet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_REDASH_USER} -d ${DB_REDASH_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  #redis для redash
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks:
+      - mynet
+    restart: unless-stopped
+
+  #redash server
+  redash:
+    image: redash/redash:10.1.0.b50633
+    container_name: server_redash
+    depends_on:
+      postgres_redash:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      REDASH_DATABASE_URL: "postgresql://${DB_REDASH_USER}:${DB_REDASH_PASSWORD}@postgres_redash:5432/${DB_REDASH_NAME}"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_SECRET_KEY: ${SECRET_KEY}
+      REDASH_COOKIE_SECRET: ${COOKIE_SECRET}
+    env_file:
+      - .env  
+    ports:
+      - "5000:5000"
+    networks:
+      - mynet
+    restart: unless-stopped
+    command: server
+
+  #redash worker
+  redash_worker:
+    image: redash/redash:10.1.0.b50633
+    container_name: worker_redash
+    depends_on:
+      - redash
+    environment:
+      REDASH_DATABASE_URL: "postgresql://${DB_REDASH_USER}:${DB_REDASH_PASSWORD}@postgres_redash:5432/${DB_REDASH_NAME}"
+      REDASH_REDIS_URL: "redis://redis:6379/0"
+      REDASH_SECRET_KEY: ${SECRET_KEY}
+      REDASH_COOKIE_SECRET: ${COOKIE_SECRET}
+      QUEUES: "queries,celery"
+      WORKERS_COUNT: 2
+    env_file:
+      - .env 
+    networks:
+      - mynet
+    restart: unless-stopped
+    command: worker
+  
+  #Jupyter notebook для анализа данных
+  jupyter_notebook:
+    image: jupyter/scipy-notebook:latest
+    container_name: jupyter_notebook
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      JUPYTER_ENABLE_LAB: "yes"
+      JUPYTER_TOKEN: ${TOKEN}
+    env_file:
+      - .env 
+    volumes:
+      - ./notebook:/home/jovyan/work
+    ports:
+      - "8888:8888"
+    networks:
+      - mynet
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redash_data:
+
+networks:
+  mynet:
+    driver: bridge
