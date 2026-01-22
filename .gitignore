@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.env
+
+# Docker
+*.log
+*.pid
+docker-compose.override.yml
+*.swp
+
+# Docker volumes
+postgres_data/
+postgres_redash_data/
+
+# Jupyter Notebook checkpoints
+notebook/.ipynb_checkpoints
+
+
+# OS
+.DS_Store
+Thumbs.db
