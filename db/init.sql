@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS weather (
 );
 
 --Индексы для ускорения выборок
---Индексирует по времени
+--Индексирует по дню
 CREATE INDEX IF NOT EXISTS idx_weather_timestamp ON weather(timestamp);
 
 --Индексирует по городу
@@ -24,6 +24,5 @@ CREATE INDEX IF NOT EXISTS idx_weather_humidity ON weather(humidity);
 
 --Индексирует по давлению
 CREATE INDEX IF NOT EXISTS idx_weather_pressure ON weather(pressure);
-
 --Индексирует по скорости ветра
 CREATE INDEX IF NOT EXISTS idx_weather_wind_speed ON weather(wind_speed);
