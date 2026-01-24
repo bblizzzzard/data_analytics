@@ -14,8 +14,6 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./db:/docker-entrypoint-initdb.d
-    networks:
-      - mynet
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
@@ -37,8 +35,6 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
     env_file:
       - .env
-    networks:
-      - mynet
     restart: unless-stopped
 
   #БД для redash
@@ -53,8 +49,6 @@ services:
       - .env
     volumes:
       - redash_data:/var/lib/postgresql/data
-    networks:
-      - mynet
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_REDASH_USER} -d ${DB_REDASH_NAME}"]
       interval: 5s
@@ -65,8 +59,6 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
-    networks:
-      - mynet
     restart: unless-stopped
 
   #redash server
@@ -87,8 +79,6 @@ services:
       - .env  
     ports:
       - "5000:5000"
-    networks:
-      - mynet
     restart: unless-stopped
     command: server
 
@@ -107,8 +97,6 @@ services:
       WORKERS_COUNT: 2
     env_file:
       - .env 
-    networks:
-      - mynet
     restart: unless-stopped
     command: worker
   
@@ -128,14 +116,8 @@ services:
       - ./notebook:/home/jovyan/work
     ports:
       - "8888:8888"
-    networks:
-      - mynet
     restart: unless-stopped
 
 volumes:
   postgres_data:
   redash_data:
-
-networks:
-  mynet:
-    driver: bridge
